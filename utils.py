@@ -32,6 +32,58 @@ INVOICE_PROPERTIES_SCHEMA = {
     "additionalProperties": False
 }
 
+INVOICE_DETECTION_PROMPT = "Is this image a photo of an invoice?"
+
+INVOICE_PROPERTIES_PROMPT = """You are an OCR and information-extraction assistant for invoices.
+
+From the provided invoice image, extract the following fields and output ONLY JSON
+matching the given schema:
+
+- invoice_date: the date of the invoice.
+- Use ONLY the date printed on the document.
+- The document may use German date formats like "30. Juni 1975" or "30.06.1975".
+- Convert it to ISO format YYYY-MM-DD (e.g. "1975-06-30").
+- If the year or day is missing or unreadable, set this field to null.
+
+- total_amount: the final total amount of the invoice.
+- Use the grand total, not intermediate subtotals.
+- Remove currency symbols and text (e.g. "DM", "EUR", "$").
+- Remove thousand separators and trailing dots, e.g. "31,496.--" → 31496.
+- Use "." as decimal separator (e.g. "1234.50").
+
+- currency: the currency of the invoice.
+- Map symbols or abbreviations to ISO codes where possible,
+    e.g. "€" or "EUR" → "EUR", "DM" → "DEM".
+- If unclear, copy the printed currency text exactly.
+
+Use ONLY information visible on the invoice image. Do NOT guess or invent values.
+If a field truly cannot be found, set it to null.
+Return only valid JSON, no markdown, no comments."""
+
+
+def invoice_detection_response_format():
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "response",
+            "strict": True,
+            "schema": INVOICE_DETECTION_SCHEMA
+        },
+        "required": ["invoice"],
+        "additionalProperties": False
+    }
+
+
+def invoice_properties_response_format():
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "invoice_schema",
+            "strict": True,
+            "schema": INVOICE_PROPERTIES_SCHEMA
+        }
+    }
+
 
 def encode_image(image_path):
     """

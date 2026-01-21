@@ -1,32 +1,35 @@
 from openrouter import Inferencer
 from local import LocalLlama
-import json
+import argparse
+import sys
 
-def workflow(Inferencer: Inferencer, image_path):
-    invoice = Inferencer.invoice_or_not(image_path, "minicpm-v:8b-2.6-q4_K_M")
 
-    print(invoice)
+def main():
+    parser = argparse.ArgumentParser(description="Invoice processing CLI")
+    parser.add_argument("backend", choices=["openrouter", "ollama", "llama"],
+                        help="Backend to use")
+    parser.add_argument("image_path", help="Path to invoice image")
+    parser.add_argument("--model", type=str, default=None,
+                        help="Model identifier (required for openrouter and ollama)")
 
-    if isinstance(invoice, str):
-        # If invoice is a string, try to convert it to a dictionary
-        try:
-            invoice = json.loads(invoice)
-        except json.JSONDecodeError:
-            # If the string cannot be converted to a dictionary, handle the error
-            print("Error: Could not convert invoice to a dictionary")
-            return None
+    args = parser.parse_args()
 
-    if invoice.get("invoice"):
-        return Inferencer.invoice_properties(image_path, "minicpm-v:8b-2.6-q4_K_M")
+    if args.backend == "llama":
+        inferencer = LocalLlama()
+        result = inferencer.process_invoice(args.image_path)
     else:
-        print("Image is not an invoice.")
-        return None
+        if not args.model:
+            print("Error: --model is required for openrouter and ollama backends",
+                  file=sys.stderr)
+            sys.exit(1)
+        if args.backend == "openrouter":
+            inferencer = Inferencer(local=False)
+        else:
+            inferencer = Inferencer(local=True)
+        result = inferencer.process_invoice(args.image_path, args.model)
 
-if __name__ == '__main__':
+    print(result)
 
-    ollama = Inferencer(local=True)
 
-    img_path = f"./rvl_cdip_invoice_images/invoice_00001.png"
-    properties = workflow(ollama, img_path)
-
-    print(properties)
+if __name__ == "__main__":
+    main()
