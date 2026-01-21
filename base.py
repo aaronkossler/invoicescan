@@ -23,7 +23,7 @@ class BaseInferencer:
             response_format=response_format,
             temperature=0
         )
-        print(completion)
+        # print(completion)
         return completion.choices[0].message.content
 
     def invoice_or_not(self, image_path, model=None):

@@ -1,22 +1,12 @@
-from openai import OpenAI
-from dotenv import load_dotenv
-from base import BaseInferencer
-
-load_dotenv()
-
-
-class LocalLlama(BaseInferencer):
-    def __init__(self, base_url="http://localhost:8080/v1", api_key="not-needed"):
-        self.client = OpenAI(base_url=base_url, api_key=api_key)
+from backend import Backend, BackendType
+import argparse
+import json
+import sys
 
 
 def main():
-    import argparse
-    import json
-    import sys
-
-    parser = argparse.ArgumentParser(description="Test LocalLlama invoice processing")
-    parser.add_argument("image_path", nargs="?", default="test_invoice.png",
+    parser = argparse.ArgumentParser(description="Test llama.cpp server invoice processing")
+    parser.add_argument("image_path", nargs="?", default="test_invoice.jpg",
                         help="Path to the invoice image file")
     parser.add_argument("--url", type=str, default="http://localhost:8080/v1",
                         help="URL of the llama.cpp server")
@@ -26,16 +16,16 @@ def main():
 
     try:
         print(f"Connecting to server: {args.url}")
-        inferencer = LocalLlama(base_url=args.url)
+        backend = Backend(type=BackendType.LLAMA, base_url=args.url, model=args.model)
 
         print(f"\n--- Testing invoice detection on: {args.image_path} ---")
-        result = inferencer.invoice_or_not(args.image_path)
+        result = backend.invoice_or_not(args.image_path)
         print(f"Result: {result}")
 
         invoice_data = json.loads(result)
         if invoice_data.get("invoice"):
             print("\n--- Invoice detected! Extracting properties ---")
-            properties = inferencer.invoice_properties(args.image_path)
+            properties = backend.invoice_properties(args.image_path)
             print(f"Properties: {properties}")
 
             props_data = json.loads(properties)

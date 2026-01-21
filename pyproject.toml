@@ -1,0 +1,4 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = "integration: mark test as integration test"
+addopts = "-v --tb=short"
