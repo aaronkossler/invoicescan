@@ -1,7 +1,11 @@
 from backend import Backend, BackendType
+from os import getenv
+from dotenv import load_dotenv
 import argparse
 import json
 import sys
+
+load_dotenv()
 
 
 def main():
@@ -10,8 +14,8 @@ def main():
                         help="Backend to use")
     parser.add_argument("image_path", help="Path to invoice image")
     parser.add_argument("--model", help="Model (required for openrouter/ollama)")
-    parser.add_argument("--url", default="http://localhost:8080/v1",
-                        help="Server URL for llama backend (default: http://localhost:8080/v1)")
+    parser.add_argument("--url", default=getenv("LLAMA_SERVER_URL", "http://localhost:8080/v1"),
+                        help="Server URL for llama backend")
     parser.add_argument("--debug", action="store_true",
                         help="Enable detailed debug output")
 

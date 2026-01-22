@@ -1,14 +1,18 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.responses import HTMLResponse, FileResponse
-from pathlib import Path
+import json
 import tempfile
 import shutil
+from os import getenv
+from pathlib import Path
+
+from dotenv import load_dotenv
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.responses import FileResponse
 from backend import Backend, BackendType
+
+load_dotenv()
 
 app = FastAPI(title="Invoice Scanner API")
 FRONTEND_PATH = Path(__file__).parent / "frontend"
-
-BACKEND_URL = "http://localhost:8080/v1"
 
 
 @app.post("/process")
@@ -22,13 +26,13 @@ async def process_invoice(file: UploadFile = File(...)):
         tmp_path = tmp.name
 
     try:
-        backend = Backend(type=BackendType.LLAMA, base_url=BACKEND_URL)
+        backend_url = getenv("LLAMA_SERVER_URL", "http://localhost:8080/v1")
+        backend = Backend(type=BackendType.LLAMA, base_url=backend_url)
         result = backend.process_invoice(tmp_path)
 
         if result is None:
             return {"error": "No invoice detected in image"}
 
-        import json
         data = json.loads(result)
         return data
     except Exception as e:

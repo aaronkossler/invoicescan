@@ -24,10 +24,11 @@ invoicescan/
 │   ├── index.html
 │   ├── script.js
 │   └── style.css
-└── tests/               # Unit tests (19 passing)
+└── tests/               # Unit tests (28 passing)
     ├── conftest.py
     ├── test_backends.py
-    └── test_cli.py
+    ├── test_cli.py
+    └── test_api.py
 ```
 
 ## Features
@@ -69,6 +70,7 @@ pip install -r requirements.txt
 ```
 OPENROUTER_API_KEY=your_openrouter_key
 OLLAMA_API_KEY=your_ollama_key
+LLAMA_SERVER_URL=http://localhost:8080/v1
 ```
 
 ## Usage

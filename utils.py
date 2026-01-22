@@ -62,27 +62,33 @@ Return only valid JSON, no markdown, no comments."""
 
 
 def invoice_detection_response_format():
-    return {
-        "type": "json_schema",
-        "json_schema": {
-            "name": "response",
-            "strict": True,
-            "schema": INVOICE_DETECTION_SCHEMA
-        },
-        "required": ["invoice"],
-        "additionalProperties": False
-    }
+    return INVOICE_DETECTION_RESPONSE_FORMAT
 
 
 def invoice_properties_response_format():
-    return {
-        "type": "json_schema",
-        "json_schema": {
-            "name": "invoice_schema",
-            "strict": True,
-            "schema": INVOICE_PROPERTIES_SCHEMA
-        }
+    return INVOICE_PROPERTIES_RESPONSE_FORMAT
+
+
+INVOICE_DETECTION_RESPONSE_FORMAT = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "response",
+        "strict": True,
+        "schema": INVOICE_DETECTION_SCHEMA
+    },
+    "required": ["invoice"],
+    "additionalProperties": False
+}
+
+
+INVOICE_PROPERTIES_RESPONSE_FORMAT = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "invoice_schema",
+        "strict": True,
+        "schema": INVOICE_PROPERTIES_SCHEMA
     }
+}
 
 
 def encode_image(image_path):

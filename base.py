@@ -1,4 +1,5 @@
 import json
+from typing import Optional
 from utils import (
     encode_image,
     INVOICE_DETECTION_PROMPT,
@@ -9,7 +10,32 @@ from utils import (
 
 
 class BaseInferencer:
-    def generate(self, prompt, image_path, response_format, model=None):
+    """
+    Base class for invoice processing inference.
+
+    Provides shared methods for invoice detection and data extraction.
+    Subclasses must implement client initialization (see Backend).
+
+    Attributes:
+        client: OpenAI-compatible client for LLM calls
+    """
+
+    def generate(self, prompt: str, image_path: str, response_format: dict, model: Optional[str] = None) -> str:
+        """
+        Generate completion via LLM with image support.
+
+        Encodes the image to base64 and sends a multimodal request
+        to the LLM with the specified response format for structured output.
+
+        Args:
+            prompt: Text prompt for the model
+            image_path: Path to image file
+            response_format: OpenAI response format specification
+            model: Model identifier (optional, defaults to empty string)
+
+        Returns:
+            str: Model response content as JSON string
+        """
         image = encode_image(image_path)
         completion = self.client.chat.completions.create(
             model=model or "",
@@ -23,10 +49,22 @@ class BaseInferencer:
             response_format=response_format,
             temperature=0
         )
-        # print(completion)
         return completion.choices[0].message.content
 
-    def invoice_or_not(self, image_path, model=None):
+    def invoice_or_not(self, image_path: str, model: Optional[str] = None) -> str:
+        """
+        Check if an image is an invoice.
+
+        Uses a simple classification prompt to determine if the image
+        contains an invoice.
+
+        Args:
+            image_path: Path to the image file
+            model: Model identifier (optional)
+
+        Returns:
+            str: JSON string with {"invoice": boolean}
+        """
         return self.generate(
             INVOICE_DETECTION_PROMPT,
             image_path,
@@ -34,7 +72,20 @@ class BaseInferencer:
             model
         )
 
-    def invoice_properties(self, image_path, model=None):
+    def invoice_properties(self, image_path: str, model: Optional[str] = None) -> str:
+        """
+        Extract structured data from an invoice image.
+
+        Performs OCR and information extraction to get invoice date,
+        total amount, and currency.
+
+        Args:
+            image_path: Path to the invoice image
+            model: Model identifier (optional)
+
+        Returns:
+            str: JSON string with invoice_date, total_amount, and currency
+        """
         return self.generate(
             INVOICE_PROPERTIES_PROMPT,
             image_path,
@@ -42,9 +93,22 @@ class BaseInferencer:
             model
         )
 
-    def process_invoice(self, image_path, model=None):
+    def process_invoice(self, image_path: str, model: Optional[str] = None) -> Optional[str]:
+        """
+        Process an invoice image end-to-end.
+
+        First checks if the image is an invoice, then extracts properties
+        if it is. Returns None for non-invoice images.
+
+        Args:
+            image_path: Path to the image file
+            model: Model identifier (optional)
+
+        Returns:
+            str: JSON string with extracted data, or None if not an invoice
+        """
         result = self.invoice_or_not(image_path, model)
-        # print(result)
+
         if isinstance(result, str):
             try:
                 result = json.loads(result)
