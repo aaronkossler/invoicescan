@@ -11,14 +11,24 @@ InvoiceScan leverages large language models (LLMs) to:
   - Total amount
   - Currency (ISO codes)
 
-## Components
+## Architecture
 
-### Core Files
-
-- `main.py` - Main workflow orchestrator that processes images through the invoice detection and extraction pipeline
-- `openrouter.py` - AI inference handler supporting OpenRouter API and local Ollama instances
-- `local.py` - Local Llama model implementation using llama-cpp-python for offline processing
-- `utils.py` - Utility functions for image encoding (base64)
+```
+invoicescan/
+├── main.py              # CLI entrypoint with backend selection
+├── backend.py           # Unified Backend class with all inference logic
+├── base.py              # BaseInferencer with shared methods
+├── utils.py             # Schemas, prompts, image encoding
+├── api.py               # FastAPI web server
+├── frontend/            # Web UI
+│   ├── index.html
+│   ├── script.js
+│   └── style.css
+└── tests/               # Unit tests (19 passing)
+    ├── conftest.py
+    ├── test_backends.py
+    └── test_cli.py
+```
 
 ## Features
 
@@ -32,18 +42,20 @@ Extracts structured invoice data with support for:
 - Thousand separators and decimal variations
 - ISO currency code mapping (€/EUR → EUR, DM → DEM)
 
-### Model Support
+### Multiple Backends
 - **OpenRouter API**: Cloud-based inference with various models
 - **Ollama**: Local inference server (http://localhost:11434/v1)
-- **Llama.cpp**: Direct local model execution with GPU acceleration (Vulkan)
+- **Llama.cpp Server**: Local inference via HTTP (http://localhost:8080/v1)
 
 ## Requirements
 
 ```
 openai
 python-dotenv
-llama-cpp-python
 requests
+fastapi
+uvicorn
+python-multipart
 ```
 
 ## Setup
@@ -57,71 +69,140 @@ pip install -r requirements.txt
 ```
 OPENROUTER_API_KEY=your_openrouter_key
 OLLAMA_API_KEY=your_ollama_key
-LLAMACPP_PATH=path/to/llama.dll
 ```
 
 ## Usage
 
-### Basic Workflow
+### Web Interface (Recommended)
+
+Start the FastAPI server:
+```bash
+python -m api
+```
+
+Then open http://localhost:8000 in your browser.
+
+### Command Line
+
+**Using main.py with backend selection:**
+```bash
+# OpenRouter (cloud)
+python main.py openrouter ./invoice.jpg --model google/gemma-3-27b-it:free
+
+# Ollama (local)
+python main.py ollama ./invoice.jpg --model llava
+
+# Llama.cpp server (simple output)
+python main.py llama ./invoice.jpg
+
+# Llama.cpp server (detailed debug output)
+python main.py llama ./invoice.jpg --debug
+
+# Llama.cpp server (custom URL)
+python main.py llama ./invoice.jpg --url http://localhost:8080/v1
+```
+
+### Programmatic Usage
 
 ```python
-from openrouter import Inferencer
-from main import workflow
+from backend import Backend, BackendType
 
-# Initialize with local Ollama
-ollama = Inferencer(local=True)
+# Initialize with llama.cpp server
+backend = Backend(type=BackendType.LLAMA, base_url="http://localhost:8080/v1")
 
-# Process an image
-result = workflow(ollama, "./invoice_image.png")
+# Process an invoice image
+result = backend.process_invoice("./invoice_image.png")
 print(result)
+# Output: {"invoice_date": "2024-01-15", "total_amount": 123.45, "currency": "EUR"}
 ```
 
-### Using OpenRouter API
+### Direct API Calls
 
 ```python
-# Initialize with OpenRouter (cloud)
-openrouter = Inferencer(local=False)
+import requests
+
+# Using the FastAPI server
+files = {"file": open("./invoice.jpg", "rb")}
+response = requests.post("http://localhost:8000/process", files=files)
+print(response.json())
 ```
 
-### Direct Inference
+## API Endpoints
 
-```python
-from openrouter import Inferencer
+### POST /process
+Process an invoice image and extract properties.
 
-inferencer = Inferencer(local=True)
+**Request:** `multipart/form-data` with `file` field containing the image.
 
-# Check if image is an invoice
-is_invoice = inferencer.invoice_or_not(image_path, "minicpm-v:8b-2.6-q4_K_M")
-
-# Extract invoice properties
-properties = inferencer.invoice_properties(image_path, "minicpm-v:8b-2.6-q4_K_M")
+**Response (success):**
+```json
+{
+  "invoice_date": "2024-01-15",
+  "total_amount": 123.45,
+  "currency": "EUR"
+}
 ```
 
-## Architecture
+**Response (no invoice detected):**
+```json
+{
+  "error": "No invoice detected in image"
+}
+```
 
-### Inferencer Class (`openrouter.py`)
-Handles AI model interactions with support for:
-- Multiple inference backends (OpenRouter, Ollama)
-- JSON schema validation for structured outputs
-- Temperature control for deterministic results
+**Response (error):**
+```json
+{
+  "detail": "Error message"
+}
+```
 
-### LocalLlama Class (`local.py`)
-Provides offline inference capabilities with:
-- GPU acceleration support
-- Configurable context size and threads
-- Direct llama.cpp integration
+## Running Tests
 
-### Workflow (`main.py`)
-Main processing pipeline:
-1. Classifies image as invoice/non-invoice
-2. If invoice, extracts structured data
-3. Returns None for non-invoice images
+```bash
+# Run all tests
+pytest tests/ -v
+
+# Run specific test file
+pytest tests/test_backends.py -v
+pytest tests/test_cli.py -v
+
+# Run with coverage
+pytest --cov=invoicescan --cov-report=term-missing
+```
 
 ## Model Configuration
 
-Default model: `minicpm-v:8b-2.6-q4_K_M`
+### OpenRouter/Ollama
+Specify model when calling inference methods:
+```python
+backend.invoice_or_not(image_path, "minicpm-v:8b-2.6-q4_K_M")
+backend.invoice_properties(image_path, "minicpm-v:8b-2.6-q4_K_M")
+backend.process_invoice(image_path, "minicpm-v:8b-2.6-q4_K_M")
+```
 
-For local Llama setup:
-- Adjust `n_gpu_layers` based on your GPU
-- Configure `n_ctx` for context length
-- Set `n_threads` for CPU threads
+### Llama.cpp Server
+The server handles model loading. Configure model in your llama.cpp server startup command.
+
+## Project Structure
+
+### Backend Classes
+
+**Backend** (`backend.py`):
+- Unified class supporting all backends via `BackendType` enum
+- `process_invoice()`: End-to-end invoice processing
+- `invoice_or_not()`: Detect if image is an invoice
+- `invoice_properties()`: Extract structured data
+
+**BaseInferencer** (`base.py`):
+- Base class with shared inference logic
+- `generate()`: Core method for LLM calls
+
+### Shared Components
+
+**utils.py**:
+- `INVOICE_DETECTION_SCHEMA`: JSON schema for invoice detection
+- `INVOICE_PROPERTIES_SCHEMA`: JSON schema for data extraction
+- `INVOICE_DETECTION_PROMPT`: Prompt for invoice detection
+- `INVOICE_PROPERTIES_PROMPT`: Prompt for data extraction
+- `encode_image()`: Convert image to base64
