@@ -1,4 +1,6 @@
 openai
 python-dotenv
-llama-cpp-python
 requests
+fastapi
+uvicorn
+python-multipart
